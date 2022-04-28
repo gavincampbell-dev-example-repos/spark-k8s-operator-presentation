@@ -1,0 +1,48 @@
+[
+    {
+        "orderTimestamp": "2022-01-13T22:30:26",
+        "kebabType": "Doner",
+        "kebabMeat": "Chicken",
+        "salad": true,
+        "sauces": [
+            "Chilli"
+        ]
+    },
+    {
+        "orderTimestamp": "2022-01-13T22:31:24",
+        "kebabType": "Doner",
+        "kebabMeat": "Chicken",
+        "salad": true,
+        "sauces": [
+            "Chilli",
+            "Garlic"
+        ]
+    },
+    {
+        "orderTimestamp": "2022-01-13T22:31:29",
+        "kebabType": "Adana",
+        "kebabMeat": "Lamb",
+        "salad": false,
+        "sauces": [
+            "Garlic"
+        ]
+    },
+    {
+        "orderTimestamp": "2022-01-13T22:32:29",
+        "kebabType": "Shish",
+        "kebabMeat": "Lamb",
+        "salad": false,
+        "sauces": [
+            "Garlic"
+        ]
+    },
+    {
+        "orderTimestamp": "2022-01-13T22:32:34",
+        "kebabType": "Adana",
+        "kebabMeat": "Lamb",
+        "salad": false,
+        "sauces": [
+            "Garlic"
+        ]
+    }
+]

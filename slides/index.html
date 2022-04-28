@@ -1,0 +1,775 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="dist/reset.css">
+    <link rel="stylesheet" href="dist/reveal.css">
+    <link rel="stylesheet" href="dist/theme/solarized.css">
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css">
+
+    <link rel="stylesheet" href="gc.css"> 
+
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section>
+                <h1>Self-hosting Spark with the Spark Kubernetes Operator</h1>
+
+                <h4>April 2022</h4>
+                <hr />
+                <h3>Gavin Campbell</h3>
+                <h4><code>gavin@gavincampbell.dev</code></h4>
+            </section>
+            <section>
+                <h1>Why?</h1>
+
+            </section>
+            <section>
+                <h2>Managed services are the right way for most customers</h2>
+                <img class="stretch" src="img/mspark.png " />
+            </section>
+            <section>
+                <h2>Not widely available beyond the big three...</h2>
+                <img class="stretch" src="img/bigthree.png" />
+            </section>
+            <section>
+                <h2>Who isn't using one of the big three?</h2>
+                <img class="stretch" src="img/2560px-IBM_System_360_at_USDA.jpg" />
+
+            </section>
+            <section>
+                <h2>Reasons not to use the Big Three</h2>
+                <ul>
+                    <li class="fragment">You <em>are</em> one of the big three</li>
+                    <li class="fragment">You are bigger than the big three</li>
+                    <li class="fragment">You are small, and still happy with the VPS provider you started with</li>
+                    <li class="fragment">You need to store data in a jurisdiction where the big three aren't present
+                    </li>
+                </ul>
+            </section>
+            <section>
+                <h2>Is it cheaper to self-host Spark?</h2>
+                <img class="stretch" src="img/cash.jpg">
+            </section>
+            <section>
+                <h2>Options for self-hosting spark</h2>
+                <img class="stretch" src="img/TPC-C_Configuration_2008.jpg" />
+                <p class="caption"><a
+                        href="https://commons.wikimedia.org/wiki/File:TPC-C_Configuration_2008.jpg">Francoisraab</a>, <a
+                        href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a>, via Wikimedia Commons
+                </p>
+            </section>
+            <section>
+
+                <h2>Options for self-hosting spark</h2>
+                <div class="twocolumn">
+                    <div class="col">
+                        <img src="img/TPC-C_Configuration_2008.jpg" />
+                        <p class="caption"><a
+                                href="https://commons.wikimedia.org/wiki/File:TPC-C_Configuration_2008.jpg">Francoisraab</a>,
+                            <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a>, via Wikimedia
+                            Commons
+                        </p>
+                    </div>
+                    <div class="col">
+                        <ul>
+                            <li class="fragment">Standalone clusters</li>
+                            <li class="fragment">YARN</li>
+                            <li class="fragment">Kubernetes</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+            <section>
+                <div class="twocolumn">
+                    <div class="col">
+                        <img src="img/brad-23.jpg" />
+
+                    </div>
+                    <div class="col">
+                        <blockquote style="font-size: larger;">Managing Kubernetes on <br />bare metal is a really
+                            fulfilling experience... </blockquote>
+                        <p class="fragment" style="text-align: right; font-size: smaller;">Brad, 23 years old<br /></p>
+
+                    </div>
+
+                </div>
+            </section>
+            <section>
+                <h2>Kubernetes Support in Spark</h2>
+                <img class="stretch" src="img/k8s-cluster-mode.png" />
+                <p class="caption">Image: Apache Software Foundation</p>
+
+            </section>
+            <section>
+                <h2>Submitting a Job to a Kubernetes Cluster</h2>
+                <pre><code data-trim >
+                    spark-submit \
+                        --master k8s://https://162.55.43.10:6443 \
+                        --deploy-mode cluster \
+                        --name example-py \
+                        --conf spark.kubernetes.container.image=docker.io/gcdotd/team_image:v1.0  \
+                        --conf spark.kubernetes.namespace=spark-ns \
+                        --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark-svc-ac \
+                        --conf spark.hadoop.fs.s3a.endpoint=http://162.55.43.10:9000 \
+                        --conf spark.hadoop.fs.s3a.access.key=$MINIO_USER \
+                        --conf spark.hadoop.fs.s3a.secret.key=$MINIO_PASSWORD \
+                        --conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem  \
+                        --conf spark.hadoop.fs.s3a.path.style.access=true \
+                        --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog \
+                        --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
+                        s3a://code/example.py
+
+                </code></pre>
+            </section>
+            <section>
+                <h2>Kubernetes executing the job</h2>
+                <img class="stretch" src="img/sparksubmitk8s.png" />
+            </section>
+            <section>
+                <h2>Kubernetes executing the job</h2>
+                <img class="stretch" src="img/sparksubmitUI.png" />
+            </section>
+            <section>
+                <h2>The Spark Kubernetes Operator</h2>
+                <img class="stretch" src="img/architecture-diagram.png" />
+                <p class="caption">Image: Google Cloud Platform</p>
+            </section>
+            <section>
+                <h2>submitting spark jobs with <code>kubectl</code> </h2>
+                <pre class="stretch"><code data-trim >
+                    #
+                    # Copyright 2018 Google LLC
+                    #
+                    # Licensed under the Apache License, Version 2.0 (the "License");
+                    # you may not use this file except in compliance with the License.
+                    # You may obtain a copy of the License at
+                    #
+                    #     https://www.apache.org/licenses/LICENSE-2.0
+                    #
+                    # Unless required by applicable law or agreed to in writing, software
+                    # distributed under the License is distributed on an "AS IS" BASIS,
+                    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                    # See the License for the specific language governing permissions and
+                    # limitations under the License.
+                    #
+                    # Support for Python is experimental, and requires building SNAPSHOT image of Apache Spark,
+                    # with `imagePullPolicy` set to Always
+                    
+                    apiVersion: "sparkoperator.k8s.io/v1beta2"
+                    kind: SparkApplication
+                    metadata:
+                      name: pyspark-pi
+                      namespace: default
+                    spec:
+                      type: Python
+                      pythonVersion: "3"
+                      mode: cluster
+                      image: "gcr.io/spark-operator/spark-py:v3.1.1"
+                      imagePullPolicy: Always
+                      mainApplicationFile: local:///opt/spark/examples/src/main/python/pi.py
+                      sparkVersion: "3.1.1"
+                      restartPolicy:
+                        type: OnFailure
+                        onFailureRetries: 3
+                        onFailureRetryInterval: 10
+                        onSubmissionFailureRetries: 5
+                        onSubmissionFailureRetryInterval: 20
+                      driver:
+                        cores: 1
+                        coreLimit: "1200m"
+                        memory: "512m"
+                        labels:
+                          version: 3.1.1
+                        serviceAccount: spark
+                      executor:
+                        cores: 1
+                        instances: 1
+                        memory: "512m"
+                        labels:
+                          version: 3.1.1
+
+                    
+
+                </code></pre>
+            </section>
+            <section>
+                <h2>The project</h2>
+                <ul>
+                    <li>Managed Kubernetes</li>
+                    <li>Emphasis on Data Engineering</li>
+                    <li>Mostly Python</li>
+                    <li>Store data in Delta Tables</li>
+                    <li>Using the Spark Kubernetes Operator</li>
+                    <li>Integration with Azure Arc for Kubernetes</li>
+                </ul>
+            </section>
+            <section>
+                <h2>The Staging Area</h2>
+                <pre class="stretch json"><code data-trim>
+                    [
+                        {
+                            "orderTimestamp": "2022-01-13T22:30:26",
+                            "kebabType": "Doner",
+                            "kebabMeat": "Chicken",
+                            "salad": true,
+                            "sauces": [
+                                "Chilli"
+                            ]
+                        },
+                        {
+                            "orderTimestamp": "2022-01-13T22:31:24",
+                            "kebabType": "Doner",
+                            "kebabMeat": "Chicken",
+                            "salad": true,
+                            "sauces": [
+                                "Chilli",
+                                "Garlic"
+                            ]
+                        },
+                        {
+                            "orderTimestamp": "2022-01-13T22:31:29",
+                            "kebabType": "Adana",
+                            "kebabMeat": "Lamb",
+                            "salad": false,
+                            "sauces": [
+                                "Garlic"
+                            ]
+                        },
+                        {
+                            "orderTimestamp": "2022-01-13T22:32:29",
+                            "kebabTy pe": "Shish",
+                            "kebabMeat": "Lamb",
+                            "salad": false,
+                            "sauces": [
+                                "Garlic"
+                            ]
+                        },
+                        {
+                            "orderTimestamp": "2022-01-13T22:32:34",
+                            "kebabType": "Adana",
+                            "kebabMeat": "Lamb",
+                            "salad": false,
+                            "sauces": [
+                                "Garlic"
+                            ]
+                        }
+                    ]
+                </code></pre>
+            </section>
+            <section>
+                <h2>The code</h2>
+                <pre class="stretch python"><code data-trim>
+                    from pyspark.sql import SparkSession
+                    from pyspark.sql.functions import md5, col, max as to_the_max, to_timestamp
+                    
+                    from delta.tables import *
+                    from os import path, environ
+                    
+                    
+                    
+                    
+                    spark = SparkSession.builder.appName("etl-demo").getOrCreate()
+                    
+                    
+                    source_path = "s3a://staging/"
+                    output_path = "s3a://output/"
+                    
+                    new_orders = spark.read.option("multiline", "true").json(source_path)
+                    
+                    
+                    output_df = new_orders.select(
+                        (md5("kebabType")).alias("kebab_type_id"), col("kebabType").alias("kebab_type_name")
+                    ).dropDuplicates()
+                    
+                    dim_kebab_type = (
+                        DeltaTable.createIfNotExists(spark)
+                        .tableName("dim_kebab_type")
+                        .addColumn("kebab_type_id", dataType="STRING")
+                        .addColumn("kebab_type_name", dataType="STRING")
+                        .location(path.join(output_path, "dim_kebab_type"))
+                        .execute()
+                    )
+                    
+                    dim_kebab_type.alias("dim_kebab_type").merge(
+                        source=output_df.alias("new_kebabs"),
+                        condition="dim_kebab_type.kebab_type_id = new_kebabs.kebab_type_id",
+                    ).whenNotMatchedInsert(
+                        values={
+                            "kebab_type_id": "new_kebabs.kebab_type_id",
+                            "kebab_type_name": "new_kebabs.kebab_type_name",
+                        }
+                    ).execute()
+                    
+                    fact_kebab_sales = (
+                        DeltaTable.createIfNotExists(spark)
+                        .tableName("fact_kebab_sales")
+                        .addColumn("order_timestamp", dataType="TIMESTAMP")
+                        .addColumn("kebab_type_id", dataType="STRING")
+                        .location(path.join(output_path, "fact_kebab_sales"))
+                        .execute()
+                    )
+                    
+                    kebab_types = spark.table("dim_kebab_type")
+                    
+                    high_watermark = (
+                        spark.table("fact_kebab_sales").select(to_the_max("order_timestamp")).first()[0]
+                    )
+                    
+                    
+                    if high_watermark is not None:
+                        new_orders = new_orders.filter(new_orders["orderTimestamp"] > high_watermark)
+                    
+                    new_orders.join(
+                        kebab_types, new_orders.kebabType == kebab_types.kebab_type_name
+                    ).select(
+                        to_timestamp(col("orderTimestamp")).alias("order_timestamp"), col("kebab_type_id")
+                    ).write.format(
+                        "delta"
+                    ).mode(
+                        "append"
+                    ).saveAsTable(
+                        "fact_kebab_sales"
+                    )
+                    
+                </code></pre>
+
+            </section>
+            <section>
+                <h2>The output bucket</h2>
+                <img class="stretch" src="img/outputbucket.png"/>
+            </section>
+            <section>
+                <h2>Building the base image</h2>
+                <dl>
+                    <dt>Get Spark</dt>
+                    <dd><code>git clone https://github.com/apache/spark</code></dd>
+                    <dt>Choose your version (wisely...)</dt>
+                    <dd><code>git checkout tags/v3.2.1</code></dd>
+
+                    <dt>Build a <em>runnable distribution</em></dt>
+                    <dd><code>./dev/make-distribution.sh --name demo -Dhadoop.version=3.3.1 \<br/>
+                    -Pscala-2.12 -Pkubernetes </code></dd>
+                    <dt>Build the base image(s)</dt>
+                    <dd><code>./dist/bin/docker-image-tool.sh -r gcdotd -t v1.0 \<br/>
+                        -p ./kubernetes/dockerfiles/spark/bindings/python/Dockerfile build<br/>
+                        ...<br/>
+                        ./dist/bin/docker-image-tool.sh -r gcdotd -t v1.0  push	
+                    </code></dd>
+
+
+
+                </dl>
+            </section>
+            <section>
+                <h2>Building the base image</h2>
+                <img class="stretch" src="img/dockehub_baseimages.png" />
+            </section>
+            <section>
+                <h2>Customising the image</h2>
+                <pre class="stretch"><code data-trim>
+                    FROM gcdotd/spark-py:v1.0
+                    USER 0
+                    # root
+                        
+                    ADD https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.1/hadoop-aws-3.3.1.jar /opt/spark/jars
+                    ADD https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.901/aws-java-sdk-bundle-1.11.901.jar /opt/spark/jars
+                    ADD https://repo1.maven.org/maven2/io/delta/delta-core_2.12/1.2.0/delta-core_2.12-1.2.0.jar /opt/spark/jars
+                    ADD https://repo1.maven.org/maven2/io/delta/delta-contribs_2.12/1.2.0/delta-contribs_2.12-1.2.0.jar /opt/spark/jars
+                    ADD https://repo1.maven.org/maven2/io/delta/delta-storage/1.2.0/delta-storage-1.2.0.jar /opt/spark/jars
+                    ADD https://repo1.maven.org/maven2/org/codehaus/jackson/jackson-core-asl/1.9.13/jackson-core-asl-1.9.13.jar /opt/spark/jars
+
+                    RUN chmod 644 /opt/spark/jars/hadoop-aws-3.3.1.jar  \
+                        && chmod 644 /opt/spark/jars/aws-java-sdk-bundle-1.11.901.jar \
+                        && chmod 644 /opt/spark/jars/delta-core_2.12-1.2.0.jar \
+                        && chmod 644 /opt/spark/jars/delta-contribs_2.12-1.2.0.jar  \
+                        && chmod 644 /opt/spark/jars/delta-storage-1.2.0.jar \
+                        && chmod 644 /opt/spark/jars/jackson-core-asl-1.9.13.jar 
+
+                    RUN pip install delta-spark==1.2.0
+
+                    USER 185
+                    # spark
+                </code></pre>
+                <hr />
+                <pre><code data-trim>
+                docker build -t gcdotd/team_image:v1.0 .
+                docker push  gcdotd/team_image:v1.0
+                </code></pre>
+            </section>
+            <section><h2>Matching Jar Versions</h2>
+                <img class="stretch" src="img/hadoopversions.png"/>
+            </section>
+            <section><h2>Matching Jar Versions</h2>
+                <img class="stretch" src="img/DeltaVersions.png"/>
+            </section>
+            <section>
+                <h2>Using the customised image </h2>
+                <pre class="stretch yaml"><code data-trim >
+                    apiVersion: "sparkoperator.k8s.io/v1beta2"
+                    kind: SparkApplication
+                    metadata:
+                      name: etl-team-image
+                      namespace: spark-ns
+                    spec:
+                      type: Python
+                      pythonVersion: "3"
+                      mode: cluster
+                      image: docker.io/gcdotd/team_image:v1.0
+                      imagePullPolicy: IfNotPresent
+                      mainApplicationFile: s3a://code/example.py
+                      sparkVersion: "3.2.1"
+                      restartPolicy:
+                        type: OnFailure
+                        onFailureRetries: 3
+                        onFailureRetryInterval: 10
+                        onSubmissionFailureRetries: 5
+                        onSubmissionFailureRetryInterval: 20
+                      timeToLiveSeconds: 300
+                      sparkConf:
+                        spark.sql.catalog.spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog" 
+                        spark.sql.extensions: "io.delta.sql.DeltaSparkSessionExtension" 
+                        spark.driver.extraJavaOptions: "-Divy.cache.dir=/tmp -Divy.home=/tmp"
+                      hadoopConf:
+                        fs.s3a.endpoint: "http://162.55.43.10:9000"
+                        fs.s3a.path.style.access: "true"
+                        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem 
+                    
+                      driver:
+                        cores: 1
+                        memory: "2g"
+                        labels:
+                          version: 3.2.1
+                        serviceAccount: spark-svc-ac
+                        envSecretKeyRefs:
+                          AWS_ACCESS_KEY_ID:
+                                  name: s3-creds
+                                  key: username
+                          AWS_SECRET_KEY:
+                                  name: s3-creds
+                                  key: password
+                      executor:
+                        cores: 1
+                        instances: 1
+                        memory: "2g"
+                        labels:
+                          version: 3.2.1
+                        envSecretKeyRefs:
+                          AWS_ACCESS_KEY_ID:
+                                  name: s3-creds
+                                  key: username
+                          AWS_SECRET_KEY:
+                                  name: s3-creds
+                                  key: password
+                    </code></pre>
+            </section>
+            <section>
+                <h2>Dependencies</h2>
+                <h4>A useful library</h4>
+                <pre class="python"><code data-trim>
+                    # do_nothing.py
+                    def do_nothing():
+                        pass		
+
+                </code></pre>
+                <h4>Using the useful library</h4>
+                <pre class="python"><code data-trim>
+                    from pyspark.sql import SparkSession
+                    from pyspark.sql.functions import md5, col, max as to_the_max, to_timestamp
+                    
+                    from delta.tables import *
+                    from os import path, environ
+                    from do_nothing import do_nothing
+                    
+                    
+                    
+                    do_nothing()
+                    
+                    spark = SparkSession.builder.appName("etl-demo").getOrCreate()
+                    
+                    
+                    source_path = "s3a://staging/"
+                    output_path = "s3a://output/"	
+
+                </code></pre>
+            </section>
+            <section>
+                <h2>Dependencies from http</h2>
+                <pre class="yaml"><code data-trim >
+                apiVersion: "sparkoperator.k8s.io/v1beta2"
+                kind: SparkApplication
+                metadata:
+                name: etl-team-image
+                namespace: spark-ns
+                spec:
+                type: Python
+                pythonVersion: "3"
+                mode: cluster
+                image: docker.io/gcdotd/team_image:v1.0
+                imagePullPolicy: IfNotPresent
+                mainApplicationFile: s3a://code/example_with_dependency.py
+                deps:
+                    pyFiles:
+                    - http://codeserver-svc:8086/do_nothing.py
+       </code></pre>
+            </section>
+            <section>
+                <h2> The Adoption Maturity Model</h2>
+                <dl class="stretch">
+                    <dt>Standard image, code and dependencies external</dt>
+                    <dd>
+                        <pre class="yaml stretch"><code data-trim> 
+                        spec:
+                            type: Python
+                            pythonVersion: "3"
+                            mode: cluster
+                            image: docker.io/gcdotd/team_image:v1.0
+                            imagePullPolicy: IfNotPresent
+                            mainApplicationFile: s3a://code/example_with_dependency.py
+                            deps:
+                                pyFiles:
+                                - http://codeserver-svc:8086/do_nothing.py
+                            </code></pre>
+                    </dd>
+                    <div class="fragment">
+                        <dt class=>Project-wide dependencies bundled, application external</dt>
+                        <dd>
+                            <pre class="docker"><code data-trim>
+                                #project/Dockerfile 
+                                FROM gcdotd/team_image:v1.0
+                                COPY  do_nothing.py /tmp/do_nothing.py</code></pre>
+                        </dd>
+                        <dd>
+                            <pre class="yaml"><code data-trim> 
+                            spec:
+                                type: Python
+                                pythonVersion: "3"
+                                mode: cluster
+                                image: docker.io/gcdotd/project_image:v1.0
+                                imagePullPolicy: IfNotPresent
+                                mainApplicationFile: s3a://code/example_with_dependency.py
+                                deps:
+                                  pyFiles:
+                                     - local:///tmp/do_nothing.py
+                        </code></pre>
+                        </dd>
+                    </div>
+
+
+                </dl>
+
+            </section>
+
+            <section>
+                <h2> The Adoption Maturity Model</h2>
+
+
+
+                <dt>Everything bundled</dt>
+                <dd>
+                    <pre class="docker"><code data-trim> 
+                        #job/Dockerfile
+                        FROM gcdotd/project_image:v1.0
+                        COPY example_with_dependency.py /tmp/example_with_dependency.py 
+                    </code></pre>
+                </dd>
+                <dd>
+                    <pre class="yaml"><code data-trim> 
+                    spec:
+                        type: Python
+                        pythonVersion: "3"
+                        mode: cluster
+                        image: docker.io/gcdotd/job_image:v1.0
+                        imagePullPolicy: IfNotPresent
+                        mainApplicationFile: local:///tmp/example_with_dependency.py
+                        deps:
+                          pyFiles:
+                             - local:///tmp/do_nothing.py
+                        </code></pre>
+                </dd>
+
+            </section>
+            <section>
+                <h2>What have we gained?</h2>
+                <ul>
+                    <li>Teams can adopt at their own pace</li>
+                    <ul>
+                        <li>Start with a Standard Image</li>
+                        <li>Add Shared Libraries</li>
+                        <li>Create Job-specific images</li>
+                    </ul>
+                    <hr />
+                    </li>
+                    <li>Code runs the same way everywhere
+                        <ul>
+                            <li>Everyone has the same version of everything</li>
+                            <li>Internal Libraries are standardised</li>
+                        </ul>
+                    </li>
+                    <hr />
+                    <li>Runs anywhere Kubernetes can run
+                        <ul>
+                            <li>In the cloud</li>
+                            <li>In the datacentre</li>
+                            <li>On the desktop*</li>
+                        </ul>
+
+                    </li>
+                </ul>
+            </section>
+            <section>
+                <h2>What about monitoring?</h2>
+                <img class="plain stretch" src="img/spark-logs-in-k8s-dash.png" />
+            </section>
+            <section>
+                <h2>What about monitoring?</h2>
+                <img class="plain stretch" src="img/sparksubmitUI.png" />
+            </section>
+
+            <section>
+                <h2>Azure Arc-enabled Kubernetes</h2>
+                <img src="img/arc-hybrid-kubernetes.png" />
+            </section>
+            <section>
+                <h2>Azure Arc-enabled Kubernetes</h2>
+
+                <ul>
+
+                    <li> Connect Kubernetes running outside of Azure for inventory, grouping, and tagging.</li>
+
+                    <li> Deploy applications and apply configuration using GitOps-based configuration management.</li>
+
+                    <li> View and monitor your clusters using Azure Monitor for containers.</li>
+
+                    <li> Enforce threat protection using Microsoft Defender for Kubernetes.</li>
+
+                    <li> Apply policy definitions using Azure Policy for Kubernetes.</li>
+
+                    <li> Use Azure Active Directory for authentication and authorization checks on your cluster.</li>
+
+                    <li> Securely access your Kubernetes cluster from anywhere without opening inbound port on firewall
+                        using Cluster Connect.</li>
+
+                    <li> Deploy Open Service Mesh on top of your cluster for observability and policy enforcement on
+                        service-to-service interactions</li>
+
+                    <li> Deploy machine learning workloads using Azure Machine Learning for Kubernetes clusters.</li>
+
+                    <li> Create custom locations as target locations for deploying Azure Arc-enabled Data Services (SQL
+                        Managed Instances, PostgreSQL Hyperscale.), App Services on Azure Arc (including web, function,
+                        and logic apps), and Event Grid on Kubernetes.</li>
+                </ul>
+
+            </section>
+            <section>
+                <h2>Azure Arc-enabled Kubernetes</h2>
+
+                <ul>
+
+                    <li> <b>Connect Kubernetes running outside of Azure for inventory, grouping, and tagging.</b></li>
+
+                    <li> <b>Deploy applications and apply configuration using GitOps-based configuration management.</b></li>
+
+                    <li> <b>View and monitor your clusters using Azure Monitor for containers.</b></li>
+
+                    <li> Enforce threat protection using Microsoft Defender for Kubernetes.</li>
+
+                    <li> Apply policy definitions using Azure Policy for Kubernetes.</li>
+
+                    <li> <b>Use Azure Active Directory for authentication and authorization checks on your cluster.</b></li>
+
+                    <li> Securely access your Kubernetes cluster from anywhere without opening inbound port on firewall
+                        using Cluster Connect.</li>
+
+                    <li> Deploy Open Service Mesh on top of your cluster for observability and policy enforcement on
+                        service-to-service interactions</li>
+
+                    <li> Deploy machine learning workloads using Azure Machine Learning for Kubernetes clusters.</li>
+
+                    <li> Create custom locations as target locations for deploying Azure Arc-enabled Data Services (SQL
+                        Managed Instances, PostgreSQL Hyperscale.), App Services on Azure Arc (including web, function,
+                        and logic apps), and Event Grid on Kubernetes.</li>
+                </ul>
+
+            </section>
+            <section>
+                <h2>Connecting a cluster to Azure</h2>
+                <pre class="stretch bash"><code data-trim>
+                    # https://docs.microsoft.com/en-us/azure/azure-arc/kubernetes/quickstart-connect-cluster?tabs=azure-cli
+                    az extension add --name connectedk8s
+                    az extension add -n k8s-configuration
+                    az extension add -n k8s-extension
+
+
+                    az provider register --namespace Microsoft.Kubernetes
+                    az provider register --namespace Microsoft.KubernetesConfiguration
+                    az provider register --namespace Microsoft.ExtendedLocation
+
+                    az provider register --namespace Microsoft.ContainerService
+
+                    #Wait!
+                    az group create --name ArcDemo --location northeurope
+
+                    az connectedk8s connect --name SparkK8sDemo --resource-group ArcDemo
+
+                    az k8s-extension create --name azuremonitor-containers --cluster-name SparkK8sDemo --resource-group ArcDemo \
+                        --cluster-type connectedClusters --extension-type Microsoft.AzureMonitor.Containers
+
+
+                </code></pre>
+            </section>
+            <section>
+                <h2>The Arc-enabled Cluster</h2>
+                <img class="stretch" src="img/arc-deployments.png" />
+            </section>
+            <section>
+                <h2>The Arc-enabled Cluster</h2>
+                <img class="stretch" src="img/containers_in_portal.png" />
+            </section>
+            <section>
+                <h2>Spark Logs in Azure Monitor</h2>
+                <img class="stretch" src="img/spark-logs-in-portal.png" />
+            </section>
+            <section>
+                <h2>Downloads</h2>
+                <img class="stretch" src="img/repo-qrcode.png"/>
+                <pre style="text-align: center;">https://github.com/gavincampbell-dev-example-repos/spark-k8s-operator-presentation</pre>
+            </section>
+
+
+        </div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script>
+        // More info about initialization & config:
+        // - https://revealjs.com/initialization/
+        // - https://revealjs.com/config/
+        Reveal.initialize({
+            hash: true,
+            hash: true,
+            width: 1920,
+            height: 1080,
+            controls: false,
+         //   slideNumber: 'c/t',
+            transition: 'none',
+
+            // Learn about plugins: https://revealjs.com/plugins/
+            plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+        });
+    </script>
+</body>
+
+</html>

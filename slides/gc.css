@@ -1,0 +1,93 @@
+.twocolumn {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    text-align: center;
+    
+ }
+ .col {
+ margin: auto;
+
+ 
+ }
+
+ .col>img {
+  
+object-fit: scale-down;
+ max-height: 55vh;
+
+}
+
+.twobytwo{
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  max-width: 90%;
+  max-height: 100%;
+ 
+}
+
+.twobytwo>img{
+  max-width: 100%;
+  max-height: 100%;
+   height: auto ;
+   object-fit: cover;
+}
+.twobytwo>span>img{
+  max-width: 100%;
+  max-height: 70%;
+   height: auto ;
+   object-fit: cover;
+}
+
+
+/*** Usage:
+ <section>
+  <h2>Slide Title</h2>
+  <div class="twocolumn">
+    <div class="col">
+      Column One
+    </div>
+    <div class="col">
+      Column Two        
+    </div>
+  </div>
+</section>
+
+*** Source:
+[How to use two-column layout with reveal.js?](https://stackoverflow.com/a/47377645)
+*/
+
+.reveal blockquote cite{
+    font-size: small;
+    font-style: normal;
+  }
+
+  .reveal blockquote footer{
+    font-size: smaller;
+  }
+
+.reveal .caption{
+  font-size: xx-small;
+  font-style: normal;
+  margin: 0;
+  padding: 0;
+  line-height: 0
+  
+}
+
+.reveal .slides section span.fragment.grow.visible {
+ 
+  font-size: 125%;
+  -webkit-transform: none;
+  transform: none;
+}
+
+.reveal .slides section span.fragment.shrink.visible {
+  
+  font-size: 80%;
+  -webkit-transform: none;
+  transform: none;
+}

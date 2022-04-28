@@ -1,0 +1,62 @@
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  name: etl-team-image
+  namespace: spark-ns
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: docker.io/gcdotd/team_image:v1.0
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: s3a://code/example_with_dependency.py
+  deps:
+    pyFiles:
+       - http://codeserver-svc:8086/do_nothing.py
+       
+  sparkVersion: "3.2.1"
+  restartPolicy:
+    type: OnFailure
+    onFailureRetries: 3
+    onFailureRetryInterval: 10
+    onSubmissionFailureRetries: 5
+    onSubmissionFailureRetryInterval: 20
+  timeToLiveSeconds: 300
+  sparkConf:
+    spark.sql.catalog.spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog" 
+    spark.sql.extensions: "io.delta.sql.DeltaSparkSessionExtension" 
+    spark.driver.extraJavaOptions: "-Divy.cache.dir=/tmp -Divy.home=/tmp"
+  hadoopConf:
+    fs.s3a.endpoint: "http://162.55.43.10:9000"
+    fs.s3a.path.style.access: "true"
+    fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem 
+
+  driver:
+    cores: 1
+    memory: "2g"
+    labels:
+      version: 3.2.1
+    serviceAccount: spark-svc-ac
+    envSecretKeyRefs:
+      AWS_ACCESS_KEY_ID:
+              name: s3-creds
+              key: username
+      AWS_SECRET_KEY:
+              name: s3-creds
+              key: password
+  executor:
+    cores: 1
+    instances: 1
+    memory: "2g"
+    labels:
+      version: 3.2.1
+    envSecretKeyRefs:
+      AWS_ACCESS_KEY_ID:
+              name: s3-creds
+              key: username
+      AWS_SECRET_KEY:
+              name: s3-creds
+              key: password
+
+
+

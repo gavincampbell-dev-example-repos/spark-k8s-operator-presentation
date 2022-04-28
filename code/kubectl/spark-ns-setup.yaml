@@ -1,0 +1,58 @@
+# Uses enviromnent variables for minio creds, export MINIO_USER_BASE64 and MINIO_PASSWORD_BASE_64 with base64 encoded values then run with 
+#   envsubst < spark-ns-setup.yaml | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark-ns
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark-svc-ac
+  namespace: spark-ns
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: spark-ns
+  name: spark-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-role-binding
+  namespace: spark-ns
+subjects:
+- kind: ServiceAccount
+  name: spark-svc-ac
+  namespace: spark-ns
+roleRef:
+  kind: Role
+  name: spark-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-creds
+  namespace: spark-ns
+type: Opaque
+data:
+  username: ${MINIO_USER_BASE64}
+  password: ${MINIO_PASSWORD_BASE64}
+
